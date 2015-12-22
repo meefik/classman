@@ -33,6 +33,7 @@ stop)
     ;;
 server)
    computers=$2
+   primary=`utreplica -l | grep -c 'is a primary server'`
    desktops=`utdesktop -l | grep ^0 | awk '{if ($2!="") print $1":"$2}'`
    sessions=`utsession -p | grep ^pseudo | awk '{print $1":"$3}'`
    new_tokens=""
@@ -47,14 +48,14 @@ server)
       #echo "$desk_token . $desk_num . $active_comp . $active_sess . $active_user . $session_type"
       if [ -n "$active_comp" ]; then
          # set kiosk mode
-         [ "$session_type" != "kiosk" ] && utkioskoverride -r $desk_token -s kiosk 1>/dev/null 2>/dev/null
+         [ "$session_type" != "kiosk" -a "$primary" -ne 0 ] && utkioskoverride -r $desk_token -s kiosk 1>/dev/null 2>/dev/null
        	 # kill	session
-       	 [ -n "$active_sess" ] && [ -z "$active_user" ] && new_tokens="$new_tokens $desk_token" #utsession -k -t $desk_token
+       	 [ -n "$active_sess" -a -z "$active_user" ] && new_tokens="$new_tokens $desk_token" #utsession -k -t $desk_token
       else
          # set regular mode
-         [ "$session_type" != "regular" ] && utkioskoverride -r $desk_token -s regular 1>/dev/null 2>/dev/null
+         [ "$session_type" != "regular" -a "$primary" -ne 0 ] && utkioskoverride -r $desk_token -s regular 1>/dev/null 2>/dev/null
          # kill session
-         [ -n "$active_sess" ] && [ -n "$active_user" ] && new_tokens="$new_tokens $desk_token" #utsession -k -t $desk_token
+         [ -n "$active_sess" -a -n "$active_user" ] && new_tokens="$new_tokens $desk_token" #utsession -k -t $desk_token
       fi
    done
    #old_tokens=`cat $TOKENS_FILE`
@@ -97,21 +98,22 @@ client)
    #setsid /usr/bin/terminal > /dev/null 2>&1 < /dev/null &
    ;;
 profile)
+   mac=`echo $SUN_SUNRAY_TOKEN | awk -F'.' '{print $2}'`
+   compid=`utdesktop -l | grep ^$mac | awk '{print $2}'`
+   echo 'user_pref("general.useragent.override", "Mozilla/5.0 (X11; U; Linux x86_64; ru; rv:1.9.2.18; CompID:'$compid') Gecko/20110622 Linux/3.6 Firefox/3.6.18");' >> ~/.mozilla/firefox/default/prefs.js
    case "$2" in
    "guest")
-      sed -i 's/user_pref("network\.proxy\.type", .);/user_pref("network\.proxy\.type", 2);/g' ~/.mozilla/firefox/default/prefs.js
-      sed -i 's/user_pref("browser\.startup\.homepage", ".*");/user_pref("browser\.startup\.homepage", "http:\/\/de\.ifmo\.ru");/g' ~/.mozilla/firefox/default/prefs.js
+      #sed -i 's|user_pref("network\.proxy\.type", .);|user_pref("network.proxy.type", 2);|g' ~/.mozilla/firefox/default/prefs.js
+      sed -i 's|user_pref("browser\.startup\.homepage", ".*");|user_pref("browser.startup.homepage", "http://de.ifmo.ru");|g' ~/.mozilla/firefox/default/prefs.js
+      #rm -rf ~/.mozilla/firefox/default/extensions/{4D498D0A-05AD-4fdb-97B5-8A0AABC1FC5B}
       setsid /usr/bin/firefox > /dev/null 2>&1 < /dev/null &
    ;;
    "olymp")
-      sed -i 's|user_pref("network\.proxy\.type", .);|user_pref("network.proxy.type", 0);|g' ~/.mozilla/firefox/default/prefs.js
       sed -i 's|user_pref("browser\.startup\.homepage", ".*");|user_pref("browser.startup.homepage", "http://cyber-net.spb.ru");|g' ~/.mozilla/firefox/default/prefs.js
-      mac=`echo $SUN_SUNRAY_TOKEN | awk -F'.' '{print $2}'`
-      compid=`utdesktop -l | grep ^$mac | awk '{print $2}'`
-      echo 'user_pref("general.useragent.override", "Mozilla/5.0 (X11; U; Linux x86_64; ru; rv:1.9.2.18; CompID:'$compid') Gecko/20110622 Linux/3.6 Firefox/3.6.18");' >> ~/.mozilla/firefox/default/prefs.js
       setsid /usr/bin/firefox > /dev/null 2>&1 < /dev/null &
    ;;
    *)
+      sed -i 's|user_pref("browser\.startup\.homepage", ".*");|user_pref("browser.startup.homepage", "http://de.ifmo.ru");|g' ~/.mozilla/firefox/default/prefs.js
       setsid /usr/bin/firefox > /dev/null 2>&1 < /dev/null &
    ;;
    esac
